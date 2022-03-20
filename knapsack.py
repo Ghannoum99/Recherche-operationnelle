@@ -1,105 +1,121 @@
-"""
-Version 1
-"""
-from urllib3.connectionpool import xrange
 
-"""
-
-def knapsack(W, wt, val, n):
-    dp = [[0 for i in range(W + 1)] for j in range(n + 1)]
-    for i in range(1, n + 1):
-        for w in range(1, W + 1):
-            if wt[i - 1] <= w:
-                dp[i][w] = max(val[i - 1] + dp[i - 1][w - wt[i - 1]], dp[i - 1][w])
-            else:
-                dp[i][w] = dp[i - 1][w]
-
-    return dp[n][W], dp
+from functools import lru_cache
+import fileinput
+import sys
 
 
+class Knapsack:
 
+    _DATA_LENGTH_ERROR = 'Three lines required. File is {} lines long.'
+    _DATA_INPUT_ERROR = 'Invalid input.'
 
+    def __init__(self, weight_available, weight_per_item, value_per_item):
 
-if __name__ == "__main__":
-    val = [3, 2, 4, 4]
-    wt = [4, 3, 2, 3]
-    n = 4
-    w = 6
-    F = [[0] * (w + 1)] + [[0] + [-1 for i in range(w + 1)] for j in range(n + 1)]
-    optimal_solution, _ = knapsack(w, wt, val, n)
-    print(optimal_solution)
+        self.wa = weight_available
+        self.wpi = weight_per_item
+        self.vpi = value_per_item
 
-"""
-import numpy as np
+    @property
+    def number_of_items(self):
+        return len(self.wpi)
 
-'''
-------------------------------------------------
-Use dynamic programming (DP) to solve 0/1 knapsack problem
-Time complexity: O(nW), where n is number of items and W is capacity
-------------------------------------------------
-knapsack_dp(values,weights,n_items,capacity,return_all=False)
-Input arguments:
-  1. values: a list of numbers in either int or float, specifying the values of items
-  2. weights: a list of int numbers specifying weights of items
-  3. n_items: an int number indicating number of items
-  4. capacity: an int number indicating the knapsack capacity
-  5. return_all: whether return all info, defaulty is False (optional)
-Return:
-  1. picks: a list of numbers storing the positions of selected items
-  2. max_val: maximum value (optional)
-------------------------------------------------
-'''
-def knapsack_dp(values,weights,n_items,capacity,return_all=False):
-    check_inputs(values,weights,n_items,capacity)
+    @lru_cache(maxsize=None)
+    def rec_knap(self, iterator, available_weight):
+        """
+        Performs recursive calculation of max value per weight given
+        and number of items available.
+        """
+        if iterator == 0:
+            return 0
+        if self.wpi[iterator-1] > available_weight:
+            # recursion
+            return self.rec_knap(iterator-1, available_weight)
+        # recursion (included values)
+        return max(
+            self.rec_knap(iterator-1, available_weight),
+            (self.rec_knap(iterator-1, available_weight - self.wpi[iterator-1])
+                + self.vpi[iterator-1]))
 
-    table = np.zeros((n_items+1,capacity+1),dtype=np.float32)
-    keep = np.zeros((n_items+1,capacity+1),dtype=np.float32)
+    def get_values(self):
+        """
+        Returns calculation of maximum value and related items.
+        """
+        j = self.wa
+        values_used = []
+        for i in range(self.number_of_items, 0, -1):
+            if self.rec_knap(i, j) != self.rec_knap(i-1, j):
+                # appending items used to values_used list
+                values_used.append((self.wpi[i-1], self.vpi[i-1]))
+                j -= self.wpi[i-1]
 
-    for i in xrange(1,n_items+1):
-        for w in xrange(0,capacity+1):
-            wi = weights[i-1] # weight of current item
-            vi = values[i-1] # value of current item
-            if (wi <= w) and (vi + table[i-1,w-wi] > table[i-1,w]):
-                table[i,w] = vi + table[i-1,w-wi]
-                keep[i,w] = 1
-            else:
-                table[i,w] = table[i-1,w]
+        # reversing list to display items in order given
+        values_used = values_used[::-1]
 
-    picks = []
-    K = capacity
+        return self.rec_knap(self.number_of_items, self.wa), values_used
 
-    for i in xrange(n_items,0,-1):
-        if keep[i,K] == 1:
-            picks.append(i)
-            K -= weights[i-1]
+    @classmethod
+    def process_input_data(cls, input_data):
+        """
+        Validates and processes input data. Returns list of items ready for
+        object initailzation.
+        """
+        data = [line.strip() for line in input_data]
 
-    picks.sort()
-    picks = [x-1 for x in picks] # change to 0-index
+        if len(data) != 3:
+            # file must be 3 lines long
+            raise ValueError(cls._DATA_LENGTH_ERROR.format(len(data)))
 
+        try:
+            data_list = []
+            # casting values to integers and appending them to data_list
+            for element in data:
+                if element in data[0]:
+                    data_list.append(int(element))
+                else:
+                    data_list.append([int(char) for char in element.split(' ')])
 
-    max_val = table[n_items,capacity]
+        except Exception as ex:
+            raise ValueError(str(ex))
 
-    return picks,max_val
+        if len(data_list[1]) != len(data_list[2]):
+                raise ValueError(cls._DATA_INPUT_ERROR)
 
-def check_inputs(values,weights,n_items,capacity):
-    # check variable type
-    assert(isinstance(values,list))
-    assert(isinstance(weights,list))
-    assert(isinstance(n_items,int))
-    assert(isinstance(capacity,int))
-    # check value type
-    assert(all(isinstance(val,int) or isinstance(val,float) for val in values))
-    assert(all(isinstance(val,int) for val in weights))
-    # check validity of value
-    assert(all(val >= 0 for val in weights))
-    assert(n_items > 0)
-    assert(capacity > 0)
+        return data_list
+
+    @staticmethod
+    def print_values(max_points, values):
+        """
+        Prints max value for weight available and items included.
+        """
+        sys.stdout.write(str(max_points) + '\n')
+        for value in values:
+            sys.stdout.write('{0} {1}\n'.format(value[0], value[1]))
+
 
 if __name__ == '__main__':
-    values = [2,3,4]
-    weights = [1,2,3]
-    n_items = 3
-    capacity = 3
-    picks, max_value = knapsack_dp(values,weights,n_items,capacity)
-    print(picks, max_value)
 
+    with fileinput.input() as data_input:
+        data = Knapsack.process_input_data(data_input)
+
+    # initializing object with given data
+    obj = Knapsack(*data)
+
+    # calculating and storing object values
+    max_value, items = obj.get_values()
+
+    # printing values
+    Knapsack.print_values(max_value, items)
+
+    # print(Knapsack.rec_knap.cache_info())
+
+"""
+input file:
+190                  - maximum weight
+56 59 80 64 75 17    - weight of items
+50 50 64 46 50 5     - items value
+result:
+150                  - max value produced
+56 50                - used items listed
+59 50                  with weight - value pairs
+75 50
+"""
