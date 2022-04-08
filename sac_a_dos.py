@@ -3,7 +3,7 @@
 
 %    Auteur : Jihad GHANNOUM
 
-%    ISTY - IATIC 4 -------- 2021-2022
+%    ISTY | IATIC 4 | 2021-2022
 
 %   fonction : Knapsack_DP
 
